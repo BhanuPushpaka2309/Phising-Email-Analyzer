@@ -1,7 +1,263 @@
-# Phising-Email-Analyzer
-This workflow analyzes incoming emails using a large language model to identify potential phishing threats.
-
-Key features:
-- Triggers on new emails in the inbox.
-- Uses an AI agent to classify emails as 'Safe', 'Suspicious', or 'High Risk'.
-- Logs a detailed verdict and findings for each email.
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=I've received an email saying my bank account is locked. Here's the email's body text: 'Dear Customer, we have suspended your account...",
+        "options": {
+          "systemMessage": "You are an expert cybersecurity analyst specializing in identifying and classifying phishing emails. Your task is to analyze the provided email and determine its threat level.\n\nInstructions:\n1.  Analyze the sender's email address for any unusual characters, misspellings, or mismatched domains (e.g., \"paypal-support.net\" instead of \"paypal.com\").\n2.  Examine the email subject for urgent or threatening language (e.g., \"Your account has been suspended,\" \"Urgent Action Required\").\n3.  Scan the email body for spelling and grammar errors, as well as a generic greeting like \"Dear Customer\" instead of a personalized name.\n4.  Look for any links and check if the displayed text of the link points to a different URL.\n5.  Determine if the email is requesting sensitive personal information (passwords, social security numbers, etc.).\n\nBased on your analysis, provide a verdict with a detailed, bulleted list of your findings.\n\nOutput Format:\nRespond only with a JSON object. The object must contain two keys:\n1.  \"verdict\": A single string with one of the following values: \"Safe\", \"Suspicious\", or \"High Risk\".\n2.  \"findings\": A list of strings, where each string is a reason for your verdict.\n\nExample Output (for a suspicious email):\n{\n  \"verdict\": \"Suspicious\",\n  \"findings\": [\n    \"The sender's domain is unusual and does not match the company's official domain.\",\n    \"The email contains generic greeting 'Dear Customer'.\",\n    \"It creates a sense of urgency by stating 'Urgent action required'.\"\n  ]\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -496,
+        -112
+      ],
+      "id": "e2a5edb9-1634-4bb3-92c2-6d92a69647fd",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -688,
+        80
+      ],
+      "id": "26f6612b-d2bc-46b6-ab1a-7ec8fabcb970",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "eL1XQfKEbcmXLjoO",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -752,
+        -208
+      ],
+      "id": "b14b800d-713f-4182-b50b-a1e4083f23b0",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "d9yCo2XbYKMz6rGV",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4e0ac384-5fca-487a-9d21-417273f9b7ca",
+              "leftValue": "={{ $execution.resumeUrl }} {{ $workflow.name }}{{ $('Gmail Trigger').item.json.Subject }} info@paidsurveyupdate.com",
+              "rightValue": "High Risk",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "3fb8dc95-cbbc-40b7-ac5b-f80b3b0c5115",
+              "leftValue": "={{ $('Gmail Trigger').item.json.historyId }}{{ $('Gmail Trigger').item.json.labels[0].id }}{{ $('Gmail Trigger').item.json.labels[1].name }}{{ $('Gmail Trigger').item.json.From }}",
+              "rightValue": "Anything Else",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -176,
+        16
+      ],
+      "id": "e21aeddf-4b2c-4ef2-a394-39874ad3cc27",
+      "name": "If",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "resource": "label",
+        "operation": "create",
+        "name": "Spam",
+        "options": {
+          "labelListVisibility": "labelShow"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        -160
+      ],
+      "id": "48887259-e6f9-48a8-86b1-3fce3ab542d0",
+      "name": "Create a label",
+      "webhookId": "cae0b069-48d9-4640-8261-3ccfb123694e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "d9yCo2XbYKMz6rGV",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "label",
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        32,
+        112
+      ],
+      "id": "daa19871-a970-47ef-8773-a27c4298407c",
+      "name": "Get many labels",
+      "webhookId": "4e8bf14d-eda5-4ff2-a370-81a7b3e1a87e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "d9yCo2XbYKMz6rGV",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Gmail Trigger": [
+      {
+        "json": {
+          "id": "198dd733ce07581e",
+          "threadId": "198dd733ce07581e",
+          "snippet": "You allowed n8n.cloud access to some of your Google Account data bhanuprakash.3190@gmail.com If you didn&#39;t allow n8n.cloud access to some of your Google Account data, someone else may be trying to",
+          "payload": {
+            "mimeType": "multipart/alternative"
+          },
+          "sizeEstimate": 13583,
+          "historyId": "13621721",
+          "internalDate": "1756061973000",
+          "labels": [
+            {
+              "id": "INBOX",
+              "name": "INBOX"
+            },
+            {
+              "id": "CATEGORY_UPDATES",
+              "name": "CATEGORY_UPDATES"
+            },
+            {
+              "id": "UNREAD",
+              "name": "UNREAD"
+            }
+          ],
+          "Subject": "Security alert",
+          "From": "Google <no-reply@accounts.google.com>",
+          "To": "bhanuprakash.3190@gmail.com"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Create a label",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get many labels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "31dc480a-6482-43e6-beb1-839b1d549243",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bbc8cb1143b7a03b155d6d04ac360808c9a54bcc8bcda557f66026820e8bc479"
+  },
+  "id": "qaoAysyjlMr5mK5h",
+  "tags": [
+    {
+      "createdAt": "2025-08-24T21:03:23.430Z",
+      "updatedAt": "2025-08-24T21:03:23.430Z",
+      "id": "zd1dODNfyCvUnbqT",
+      "name": "Phising Email Analyzer"
+    }
+  ]
+}
